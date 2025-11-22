@@ -42,6 +42,9 @@ env/
 *.log
 logs/
 
+# Reports
+reports/
+
 # OS
 .DS_Store
 Thumbs.db
