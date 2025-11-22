@@ -46,10 +46,17 @@ class BTCTradingBot:
             'enableRateLimit': True,
         })
 
+        # Enable Futures trading for Binance
+        if config.EXCHANGE.lower() == 'binance':
+            exchange.options['defaultType'] = 'future'  # Use USDT-M Futures
+            print("📊 Binance Futures mode enabled")
+
+        # Enable testnet mode
         if config.TESTNET:
             if hasattr(exchange, 'set_sandbox_mode'):
                 exchange.set_sandbox_mode(True)
                 print("⚠️  Testnet mode enabled")
+                print("🔗 Using: https://testnet.binancefuture.com/")
 
         return exchange
 
