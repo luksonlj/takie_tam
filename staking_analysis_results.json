@@ -1,0 +1,211 @@
+{
+  "timestamp": "2025-11-22T21:35:39.562584",
+  "usd_to_pln": 4.0,
+  "coins": {
+    "ETH": {
+      "name": "Ethereum",
+      "price_usd": 3100.0,
+      "apy_min": 2.5,
+      "apy_max": 4.5,
+      "platform": "Lido, Rocket Pool, Binance, Kraken",
+      "risk_level": "low"
+    },
+    "ETH_SOLO": {
+      "name": "Ethereum (Solo Staking)",
+      "price_usd": 3100.0,
+      "apy_min": 3.0,
+      "apy_max": 5.0,
+      "platform": "Własny node",
+      "risk_level": "medium"
+    },
+    "SOL": {
+      "name": "Solana",
+      "price_usd": 145.0,
+      "apy_min": 6.0,
+      "apy_max": 8.5,
+      "platform": "Phantom, Binance, Kraken",
+      "risk_level": "medium"
+    },
+    "ADA": {
+      "name": "Cardano",
+      "price_usd": 0.6,
+      "apy_min": 2.5,
+      "apy_max": 4.5,
+      "platform": "Daedalus, Yoroi, Binance",
+      "risk_level": "low"
+    },
+    "DOT": {
+      "name": "Polkadot",
+      "price_usd": 7.0,
+      "apy_min": 10.0,
+      "apy_max": 14.0,
+      "platform": "Polkadot.js, Binance, Kraken",
+      "risk_level": "medium"
+    },
+    "ATOM": {
+      "name": "Cosmos",
+      "price_usd": 9.5,
+      "apy_min": 15.0,
+      "apy_max": 20.0,
+      "platform": "Keplr, Cosmostation, Binance",
+      "risk_level": "medium"
+    },
+    "MATIC": {
+      "name": "Polygon",
+      "price_usd": 0.9,
+      "apy_min": 4.0,
+      "apy_max": 6.5,
+      "platform": "Binance, Lido",
+      "risk_level": "medium"
+    },
+    "AVAX": {
+      "name": "Avalanche",
+      "price_usd": 38.0,
+      "apy_min": 6.0,
+      "apy_max": 9.0,
+      "platform": "Avalanche Wallet, Binance",
+      "risk_level": "medium"
+    },
+    "BNB": {
+      "name": "Binance Coin",
+      "price_usd": 620.0,
+      "apy_min": 4.0,
+      "apy_max": 7.0,
+      "platform": "Binance (DeFi Staking, Locked Staking)",
+      "risk_level": "low"
+    },
+    "ALGO": {
+      "name": "Algorand",
+      "price_usd": 0.25,
+      "apy_min": 5.0,
+      "apy_max": 7.5,
+      "platform": "Algorand Wallet, Binance",
+      "risk_level": "medium"
+    },
+    "TIA": {
+      "name": "Celestia",
+      "price_usd": 6.5,
+      "apy_min": 12.0,
+      "apy_max": 16.0,
+      "platform": "Keplr, Binance",
+      "risk_level": "high"
+    },
+    "USDT_CEFI": {
+      "name": "Tether (CeFi)",
+      "price_usd": 1.0,
+      "apy_min": 3.0,
+      "apy_max": 6.0,
+      "platform": "Binance Earn, Crypto.com, Nexo",
+      "risk_level": "low"
+    },
+    "USDC_DEFI": {
+      "name": "USD Coin (DeFi)",
+      "price_usd": 1.0,
+      "apy_min": 4.0,
+      "apy_max": 12.0,
+      "platform": "Aave, Compound, Curve",
+      "risk_level": "medium"
+    }
+  },
+  "example_calculations": {
+    "10k_pln_investment": {
+      "ETH": {
+        "meets_minimum": true,
+        "coin_symbol": "ETH",
+        "coin_name": "Ethereum",
+        "investment_usd": 2500,
+        "investment_pln": 10000.0,
+        "coins_amount": 0.8064516129032258,
+        "apy": 2.5,
+        "daily_return_usd": 0.17123287671232876,
+        "daily_return_pln": 0.684931506849315,
+        "monthly_return_usd": 5.208333333333333,
+        "monthly_return_pln": 20.833333333333332,
+        "yearly_return_usd": 62.5,
+        "yearly_return_pln": 250.0,
+        "future_value_5y_usd": 2828.520532226561,
+        "total_earnings_5y_usd": 328.52053222656104,
+        "total_earnings_5y_pln": 1314.0821289062442,
+        "lock_period_days": 0,
+        "platform": "Lido, Rocket Pool, Binance, Kraken",
+        "risk_level": "low",
+        "staking_type": "native/liquid",
+        "additional_info": "Najbezpieczniejszy, największa kapitalizacja"
+      },
+      "ETH_SOLO": {
+        "meets_minimum": false,
+        "minimum_required_usd": 99200.0,
+        "minimum_required_pln": 396800.0
+      },
+      "SOL": {
+        "meets_minimum": true,
+        "coin_symbol": "SOL",
+        "coin_name": "Solana",
+        "investment_usd": 2500,
+        "investment_pln": 10000.0,
+        "coins_amount": 17.24137931034483,
+        "apy": 6.0,
+        "daily_return_usd": 0.410958904109589,
+        "daily_return_pln": 1.643835616438356,
+        "monthly_return_usd": 12.5,
+        "monthly_return_pln": 50.0,
+        "yearly_return_usd": 150.0,
+        "yearly_return_pln": 600.0,
+        "future_value_5y_usd": 3345.563944000001,
+        "total_earnings_5y_usd": 845.5639440000009,
+        "total_earnings_5y_pln": 3382.2557760000036,
+        "lock_period_days": 0,
+        "platform": "Phantom, Binance, Kraken",
+        "risk_level": "medium",
+        "staking_type": "native",
+        "additional_info": "Wysoki APY, ale większa zmienność"
+      },
+      "ADA": {
+        "meets_minimum": true,
+        "coin_symbol": "ADA",
+        "coin_name": "Cardano",
+        "investment_usd": 2500,
+        "investment_pln": 10000.0,
+        "coins_amount": 4166.666666666667,
+        "apy": 2.5,
+        "daily_return_usd": 0.17123287671232876,
+        "daily_return_pln": 0.684931506849315,
+        "monthly_return_usd": 5.208333333333333,
+        "monthly_return_pln": 20.833333333333332,
+        "yearly_return_usd": 62.5,
+        "yearly_return_pln": 250.0,
+        "future_value_5y_usd": 2828.520532226561,
+        "total_earnings_5y_usd": 328.52053222656104,
+        "total_earnings_5y_pln": 1314.0821289062442,
+        "lock_period_days": 0,
+        "platform": "Daedalus, Yoroi, Binance",
+        "risk_level": "low",
+        "staking_type": "native",
+        "additional_info": "Brak blokady, można wypłacić w każdej chwili"
+      },
+      "DOT": {
+        "meets_minimum": true,
+        "coin_symbol": "DOT",
+        "coin_name": "Polkadot",
+        "investment_usd": 2500,
+        "investment_pln": 10000.0,
+        "coins_amount": 357.14285714285717,
+        "apy": 10.0,
+        "daily_return_usd": 0.684931506849315,
+        "daily_return_pln": 2.73972602739726,
+        "monthly_return_usd": 20.833333333333332,
+        "monthly_return_pln": 83.33333333333333,
+        "yearly_return_usd": 250.0,
+        "yearly_return_pln": 1000.0,
+        "future_value_5y_usd": 4026.2750000000015,
+        "total_earnings_5y_usd": 1526.2750000000015,
+        "total_earnings_5y_pln": 6105.100000000006,
+        "lock_period_days": 28,
+        "platform": "Polkadot.js, Binance, Kraken",
+        "risk_level": "medium",
+        "staking_type": "native",
+        "additional_info": "Wysoki APY, ale 28 dni blokady przy unbonding"
+      }
+    }
+  }
+}
