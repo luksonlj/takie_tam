@@ -40,6 +40,10 @@ env/
 
 # Logs
 *.log
+logs/
+
+# Reports
+reports/
 
 # OS
 .DS_Store

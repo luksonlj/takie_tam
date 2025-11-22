@@ -22,6 +22,12 @@ Prosty bot handlowy dla pary BTC/USDT wykorzystujący analizę techniczną i pri
 - **Tryb testowy:**
   - Możliwość pracy na testnet bez prawdziwych transakcji
 
+- **Analiza wydajności:**
+  - Backtest strategii na danych historycznych z Binance
+  - Szczegółowe raporty P/L w USDT
+  - Statystyki sygnałów i transakcji
+  - Analiza win rate i risk/reward ratio
+
 ## Instalacja
 
 1. Sklonuj repozytorium:
@@ -114,13 +120,18 @@ Bot generuje sygnał sprzedaży gdy:
 
 ```
 .
-├── trading_bot.py      # Główny plik bota
-├── indicators.py       # Moduł obliczania wskaźników
-├── price_action.py     # Moduł analizy price action
-├── config.py           # Konfiguracja
-├── requirements.txt    # Zależności
-├── .env.example        # Przykładowa konfiguracja
-└── README.md           # Dokumentacja
+├── trading_bot.py            # Główny plik bota
+├── indicators.py             # Moduł obliczania wskaźników
+├── price_action.py           # Moduł analizy price action
+├── config.py                 # Konfiguracja
+├── performance_analysis.py   # Analiza wydajności (rzeczywiste dane)
+├── demo_analysis.py          # Demo analizy (dane symulowane)
+├── requirements.txt          # Zależności
+├── .env.example              # Przykładowa konfiguracja
+├── README.md                 # Dokumentacja
+├── PERFORMANCE_ANALYSIS.md   # Dokumentacja analizy wydajności
+├── logs/                     # Logi z pracy bota
+└── reports/                  # Raporty wydajności
 ```
 
 ## Uwagi bezpieczeństwa
@@ -139,13 +150,39 @@ Bot generuje sygnał sprzedaży gdy:
 - Konto na giełdzie (Binance lub inna wspierana przez CCXT)
 - Klucze API z uprawnieniami do handlu
 
+## Analiza wydajności
+
+Bot zawiera narzędzia do analizy wydajności i backtestingu strategii:
+
+### Analiza rzeczywistych danych z Binance
+```bash
+python performance_analysis.py
+```
+
+Pobiera dane historyczne z Binance i testuje strategię bota. Generuje szczegółowy raport:
+- Statystyki sygnałów (BUY/SELL/HOLD)
+- Liczba i wyniki transakcji
+- Win rate i risk/reward ratio
+- Szczegółowe P/L dla każdej transakcji w USDT
+
+### Demo z danymi symulowanymi
+```bash
+python demo_analysis.py
+```
+
+Demonstracja analizy wydajności używająca symulowanych danych (nie wymaga internetu).
+
+### Więcej informacji
+Szczegółowa dokumentacja narzędzi analizy dostępna w pliku `PERFORMANCE_ANALYSIS.md`.
+
 ## Wsparcie
 
 W razie problemów:
-1. Sprawdź logi bota
+1. Sprawdź logi bota w katalogu `logs/`
 2. Upewnij się, że klucze API są poprawne
 3. Sprawdź połączenie z internetem
 4. Sprawdź limity API na giełdzie
+5. Przejrzyj raporty wydajności w katalogu `reports/`
 
 ## Licencja
 
