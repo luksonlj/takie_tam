@@ -71,33 +71,44 @@ python trading_bot.py
 ```
 
 Bot będzie:
-1. Pobierał dane OHLCV z giełdy
+1. Pobierał dane OHLCV z giełdy co 30 sekund
 2. Obliczał wskaźniki techniczne
 3. Analizował price action
-4. Generował sygnały handlowe
-5. Wykonywał transakcje (jeśli warunki są spełnione)
+4. Generował sygnały handlowe BUY i SELL
+5. Wykonywał transakcje w obie strony (LONG i SHORT)
 
 ## Strategia handlowa
 
-### Sygnał BUY (kupno)
+### Sygnał BUY (kupno/otwarcie LONG)
 Bot generuje sygnał kupna gdy:
 - Trend jest zwyżkowy (MA10 > MA30 > MA60)
 - OBV pokazuje trend wzrostowy
 - Wolumen jest wysoki i rosnący
 - Cena powyżej kluczowych średnich kroczących
 - Minimum 3 warunki muszą być spełnione
+- Minimum 40% pewności sygnału
 
-### Sygnał SELL (sprzedaż)
+**Akcje:**
+- Otwiera pozycję LONG jeśli nie ma żadnej pozycji
+- Zamyka pozycję SHORT jeśli była otwarta
+
+### Sygnał SELL (sprzedaż/otwarcie SHORT)
 Bot generuje sygnał sprzedaży gdy:
 - Trend jest spadkowy (MA10 < MA30 < MA60)
 - OBV pokazuje trend spadkowy
 - Cena poniżej kluczowych średnich kroczących
 - Wykryta dywergencja OBV
 - Minimum 3 warunki muszą być spełnione
+- Minimum 40% pewności sygnału
+
+**Akcje:**
+- Zamyka pozycję LONG jeśli była otwarta
+- Otwiera pozycję SHORT jeśli nie ma żadnej pozycji (wymaga margin/futures)
 
 ### Stop Loss / Take Profit
-- **Stop Loss:** Automatyczna sprzedaż przy stracie 2% (domyślnie)
-- **Take Profit:** Automatyczna sprzedaż przy zysku 4% (domyślnie)
+- **Stop Loss:** Automatyczne zamknięcie pozycji przy stracie 2% (domyślnie)
+- **Take Profit:** Automatyczne zamknięcie pozycji przy zysku 4% (domyślnie)
+- Działa dla obu kierunków: LONG i SHORT
 
 ## Struktura projektu
 
