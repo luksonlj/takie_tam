@@ -199,7 +199,7 @@ class BTCTradingBot:
         """
         signal_type = signal['signal']
         confidence = signal['confidence']
-        min_confidence = 40  # Reduced for more active trading
+        min_confidence = 60  # Increased for higher quality signals
 
         # BUY Signal - Open LONG or Close SHORT
         if signal_type == 'BUY' and confidence >= min_confidence:
@@ -364,6 +364,7 @@ class BTCTradingBot:
         self.logger.info(f"{'='*50}")
         self.logger.info(f"Price: ${signal['price']:.2f}")
         self.logger.info(f"Trend: {signal['trend'].upper()}")
+        self.logger.info(f"Main Trend: {signal.get('main_trend', 'N/A').upper()}")
         self.logger.info(f"Signal: {signal['signal']} (Confidence: {signal['confidence']}%)")
         self.logger.info(f"\n📈 Moving Averages:")
         self.logger.info(f"  MA10: ${signal['ma10']:.2f}")

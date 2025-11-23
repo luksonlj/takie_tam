@@ -138,8 +138,8 @@ class DemoAnalyzer:
                 'position': position
             })
 
-            # Execute trades based on signal
-            if signal['signal'] == 'BUY' and signal['confidence'] >= 40:
+            # Execute trades based on signal (60% minimum confidence)
+            if signal['signal'] == 'BUY' and signal['confidence'] >= 60:
                 # Close SHORT position if open
                 if position == 'SHORT':
                     pnl_percent = ((entry_price - signal['price']) / entry_price) * 100
@@ -168,7 +168,7 @@ class DemoAnalyzer:
                         'confidence': signal['confidence']
                     })
 
-            elif signal['signal'] == 'SELL' and signal['confidence'] >= 40:
+            elif signal['signal'] == 'SELL' and signal['confidence'] >= 60:
                 # Close LONG position if open
                 if position == 'LONG':
                     pnl_percent = ((signal['price'] - entry_price) / entry_price) * 100
