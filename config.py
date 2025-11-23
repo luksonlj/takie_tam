@@ -17,10 +17,10 @@ TIMEFRAME = os.getenv('TIMEFRAME', '1h')
 TRADE_AMOUNT = float(os.getenv('TRADE_AMOUNT', '0.001'))
 TESTNET = os.getenv('TESTNET', 'true').lower() == 'true'
 
-# Risk Management
+# Risk Management (Optimized for better performance)
 MAX_POSITION_SIZE = float(os.getenv('MAX_POSITION_SIZE', '0.01'))
-STOP_LOSS_PERCENT = float(os.getenv('STOP_LOSS_PERCENT', '2.0'))
-TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '4.0'))
+STOP_LOSS_PERCENT = float(os.getenv('STOP_LOSS_PERCENT', '3.0'))  # Increased from 2.0% to reduce false stops
+TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '6.0'))  # Increased from 4.0% for better risk/reward (1:2 ratio)
 
 # Indicator Settings
 MA_SHORT = 10

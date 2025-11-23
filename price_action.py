@@ -110,9 +110,45 @@ class PriceActionAnalyzer:
         }
 
     @staticmethod
+    def detect_main_trend(data: pd.DataFrame) -> str:
+        """
+        Detect main market trend using longer-term moving averages
+
+        Args:
+            data: DataFrame with price and indicator data
+
+        Returns:
+            'strong_bullish', 'bullish', 'bearish', 'strong_bearish', or 'neutral'
+        """
+        if len(data) < 60:
+            return 'neutral'
+
+        last_row = data.iloc[-1]
+        ma30 = last_row.get('ma_30', None)
+        ma60 = last_row.get('ma_60', None)
+
+        if ma30 is None or ma60 is None:
+            return 'neutral'
+
+        # Check MA30 vs MA60 for main trend
+        diff_percent = ((ma30 - ma60) / ma60) * 100
+
+        if diff_percent > 2:  # MA30 significantly above MA60
+            return 'strong_bullish'
+        elif diff_percent > 0.5:
+            return 'bullish'
+        elif diff_percent < -2:  # MA30 significantly below MA60
+            return 'strong_bearish'
+        elif diff_percent < -0.5:
+            return 'bearish'
+        else:
+            return 'neutral'
+
+    @staticmethod
     def generate_signal(data: pd.DataFrame) -> Dict[str, any]:
         """
         Generate trading signal based on price action and indicators
+        IMPROVED VERSION with stricter requirements and trend filtering
 
         Args:
             data: DataFrame with all indicators
@@ -129,6 +165,7 @@ class PriceActionAnalyzer:
 
         # Analyze components
         trend = PriceActionAnalyzer.detect_trend(data)
+        main_trend = PriceActionAnalyzer.detect_main_trend(data)
         volume_analysis = PriceActionAnalyzer.analyze_volume(data)
         obv_analysis = PriceActionAnalyzer.analyze_obv(data)
 
@@ -136,69 +173,106 @@ class PriceActionAnalyzer:
         close = last_row['close']
         ma10 = last_row.get('ma_10', 0)
         ma30 = last_row.get('ma_30', 0)
+        ma60 = last_row.get('ma_60', 0)
 
         # Initialize signal
         signal = 'HOLD'
         confidence = 0
         reasons = []
 
-        # BUY Signal Logic
+        # BUY Signal Logic - More selective
         buy_conditions = 0
+
+        # Strong requirement: bullish trend
         if trend == 'bullish':
             buy_conditions += 2
             reasons.append('Bullish trend detected')
 
+        # OBV confirmation
         if obv_analysis['obv_trend'] == 'bullish':
             buy_conditions += 1
             reasons.append('OBV trending up')
 
-        if volume_analysis['high_volume'] and volume_analysis['increasing_volume']:
+        # Volume confirmation - now more important
+        if volume_analysis['high_volume']:
             buy_conditions += 1
-            reasons.append('High and increasing volume')
+            reasons.append('High volume')
 
+        if volume_analysis['increasing_volume']:
+            buy_conditions += 1
+            reasons.append('Increasing volume')
+
+        # Price position
         if close > ma10 > ma30:
             buy_conditions += 1
             reasons.append('Price above key MAs')
 
-        # SELL Signal Logic
+        # Additional: Price momentum
+        if close > ma60:
+            buy_conditions += 1
+            reasons.append('Price above long-term MA')
+
+        # SELL Signal Logic - Much more strict with trend filter
         sell_conditions = 0
-        if trend == 'bearish':
-            sell_conditions += 2
-            reasons.append('Bearish trend detected')
 
-        if obv_analysis['obv_trend'] == 'bearish':
-            sell_conditions += 1
-            reasons.append('OBV trending down')
+        # CRITICAL: Don't SHORT in strong uptrend!
+        if main_trend in ['strong_bullish', 'bullish']:
+            sell_conditions = 0  # Block all SHORT signals in uptrend
+            reasons = ['Main trend is bullish - avoiding SHORT']
+        else:
+            # Strong requirement: bearish trend
+            if trend == 'bearish':
+                sell_conditions += 2
+                reasons.append('Bearish trend detected')
 
-        if close < ma10 < ma30:
-            sell_conditions += 1
-            reasons.append('Price below key MAs')
+            # OBV confirmation
+            if obv_analysis['obv_trend'] == 'bearish':
+                sell_conditions += 1
+                reasons.append('OBV trending down')
 
-        if obv_analysis['obv_divergence']:
-            sell_conditions += 1
-            reasons.append('OBV divergence detected')
+            # Price position
+            if close < ma10 < ma30:
+                sell_conditions += 1
+                reasons.append('Price below key MAs')
 
-        # Determine signal
-        if buy_conditions >= 3:
+            # Price below long-term MA
+            if close < ma60:
+                sell_conditions += 1
+                reasons.append('Price below long-term MA')
+
+            # Divergence as additional confirmation
+            if obv_analysis['obv_divergence']:
+                sell_conditions += 1
+                reasons.append('OBV divergence detected')
+
+            # Volume requirement for SHORT - must have confirmation
+            if volume_analysis['high_volume']:
+                sell_conditions += 1
+                reasons.append('High volume confirmation')
+
+        # Determine signal - STRICTER REQUIREMENTS
+        # Require 4+ conditions AND 60%+ confidence
+        if buy_conditions >= 4:
             signal = 'BUY'
-            confidence = min(buy_conditions * 20, 100)
-        elif sell_conditions >= 3:
+            confidence = min(buy_conditions * 15, 100)  # 15% per condition
+        elif sell_conditions >= 4:
             signal = 'SELL'
-            confidence = min(sell_conditions * 20, 100)
+            confidence = min(sell_conditions * 15, 100)
         else:
             signal = 'HOLD'
             confidence = 0
-            reasons = ['Waiting for stronger confirmation']
+            reasons = [f'Waiting for stronger confirmation (BUY:{buy_conditions}/4, SELL:{sell_conditions}/4)']
 
         return {
             'signal': signal,
             'confidence': confidence,
             'reasons': reasons,
             'trend': trend,
+            'main_trend': main_trend,
             'volume_analysis': volume_analysis,
             'obv_analysis': obv_analysis,
             'price': close,
             'ma10': ma10,
             'ma30': ma30,
-            'ma60': last_row.get('ma_60', 0)
+            'ma60': ma60
         }

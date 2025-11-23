@@ -85,14 +85,18 @@ Bot będzie:
 
 ## Strategia handlowa
 
+**UWAGA:** Strategia została zoptymalizowana (23.11.2025) - szczegóły w `OPTIMIZATION_CHANGES.md`
+
 ### Sygnał BUY (kupno/otwarcie LONG)
 Bot generuje sygnał kupna gdy:
 - Trend jest zwyżkowy (MA10 > MA30 > MA60)
 - OBV pokazuje trend wzrostowy
-- Wolumen jest wysoki i rosnący
+- Wolumen jest wysoki
+- Wolumen jest rosnący
 - Cena powyżej kluczowych średnich kroczących
-- Minimum 3 warunki muszą być spełnione
-- Minimum 40% pewności sygnału
+- Cena powyżej długoterminowej MA60
+- **Minimum 4 warunki muszą być spełnione** (zwiększone z 3)
+- **Minimum 60% pewności sygnału** (zwiększone z 40%)
 
 **Akcje:**
 - Otwiera pozycję LONG jeśli nie ma żadnej pozycji
@@ -100,20 +104,26 @@ Bot generuje sygnał kupna gdy:
 
 ### Sygnał SELL (sprzedaż/otwarcie SHORT)
 Bot generuje sygnał sprzedaży gdy:
+- **Główny trend NIE jest wzrostowy** (filtr ochronny!)
 - Trend jest spadkowy (MA10 < MA30 < MA60)
 - OBV pokazuje trend spadkowy
 - Cena poniżej kluczowych średnich kroczących
+- Cena poniżej długoterminowej MA60
 - Wykryta dywergencja OBV
-- Minimum 3 warunki muszą być spełnione
-- Minimum 40% pewności sygnału
+- Wysoki wolumen (wymagane dla potwierdzenia)
+- **Minimum 4 warunki muszą być spełnione** (zwiększone z 3)
+- **Minimum 60% pewności sygnału** (zwiększone z 40%)
 
 **Akcje:**
 - Zamyka pozycję LONG jeśli była otwarta
 - Otwiera pozycję SHORT jeśli nie ma żadnej pozycji (wymaga margin/futures)
 
+**WAŻNE:** Bot blokuje wszystkie sygnały SHORT gdy główny trend (MA30 vs MA60) jest wzrostowy!
+
 ### Stop Loss / Take Profit
-- **Stop Loss:** Automatyczne zamknięcie pozycji przy stracie 2% (domyślnie)
-- **Take Profit:** Automatyczne zamknięcie pozycji przy zysku 4% (domyślnie)
+- **Stop Loss:** Automatyczne zamknięcie pozycji przy stracie 3% (zwiększone z 2%)
+- **Take Profit:** Automatyczne zamknięcie pozycji przy zysku 6% (zwiększone z 4%)
+- **Risk/Reward Ratio:** 1:2
 - Działa dla obu kierunków: LONG i SHORT
 
 ## Struktura projektu
