@@ -73,6 +73,22 @@ class BTCTradingBot:
         self.indicators = TechnicalIndicators()
         self.analyzer = PriceActionAnalyzer()
 
+        # Session tracking for 4h reports
+        self.session_start = datetime.now()
+        self.last_report_time = datetime.now()
+        self.session_stats = {
+            'total_signals': 0,
+            'buy_signals': 0,
+            'sell_signals': 0,
+            'hold_signals': 0,
+            'positions_opened': 0,
+            'positions_closed': 0,
+            'closed_trades': [],  # List of completed trades with P/L
+            'max_price': 0,
+            'min_price': float('inf'),
+            'signals_history': []  # Last 20 signals for context
+        }
+
         self.logger.info("🤖 BTC Trading Bot initialized")
         self.logger.info(f"Exchange: {config.EXCHANGE}")
         self.logger.info(f"Symbol: {self.symbol}")
@@ -215,6 +231,18 @@ class BTCTradingBot:
                     pnl_usdt = self.position_size * (self.entry_price - signal['price'])
                     self.logger.info(f"P/L: {pnl_percent:+.2f}% (${pnl_usdt:+.2f} USDT)")
 
+                    # Track closed trade
+                    self.session_stats['closed_trades'].append({
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'type': 'CLOSE_SHORT',
+                        'entry_price': self.entry_price,
+                        'exit_price': signal['price'],
+                        'position_size': self.position_size,
+                        'pnl_percent': pnl_percent,
+                        'pnl_usdt': pnl_usdt
+                    })
+                    self.session_stats['positions_closed'] += 1
+
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 order = self.place_order('buy', trade_amount)
                 if order:
@@ -238,6 +266,7 @@ class BTCTradingBot:
                         self.position = 'long'
                         self.entry_price = signal['price']
                         self.position_size = trade_amount
+                        self.session_stats['positions_opened'] += 1
                         self.logger.info(f"✅ LONG position opened at ${self.entry_price:.2f}")
                         self.logger.info(f"Position size: {self.position_size} BTC")
                 else:
@@ -256,6 +285,18 @@ class BTCTradingBot:
                     pnl_percent = ((signal['price'] - self.entry_price) / self.entry_price) * 100
                     pnl_usdt = self.position_size * (signal['price'] - self.entry_price)
                     self.logger.info(f"P/L: {pnl_percent:+.2f}% (${pnl_usdt:+.2f} USDT)")
+
+                    # Track closed trade
+                    self.session_stats['closed_trades'].append({
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'type': 'CLOSE_LONG',
+                        'entry_price': self.entry_price,
+                        'exit_price': signal['price'],
+                        'position_size': self.position_size,
+                        'pnl_percent': pnl_percent,
+                        'pnl_usdt': pnl_usdt
+                    })
+                    self.session_stats['positions_closed'] += 1
 
                 btc_balance = self.get_balance('BTC')
                 if btc_balance > 0:
@@ -285,6 +326,7 @@ class BTCTradingBot:
                     self.position = 'short'
                     self.entry_price = signal['price']
                     self.position_size = trade_amount
+                    self.session_stats['positions_opened'] += 1
                     self.logger.info(f"✅ SHORT position opened at ${self.entry_price:.2f} (SIMULATED)")
                     self.logger.info(f"Position size: {self.position_size} BTC")
                 elif btc_balance >= trade_amount:
@@ -293,6 +335,7 @@ class BTCTradingBot:
                         self.position = 'short'
                         self.entry_price = signal['price']
                         self.position_size = trade_amount
+                        self.session_stats['positions_opened'] += 1
                         self.logger.info(f"✅ SHORT position opened at ${self.entry_price:.2f}")
                         self.logger.info(f"Position size: {self.position_size} BTC")
                 else:
@@ -320,7 +363,20 @@ class BTCTradingBot:
         if pnl_percent <= -config.STOP_LOSS_PERCENT:
             self.logger.info(f"\n🛑 STOP LOSS triggered at {pnl_percent:.2f}%")
 
+            # Track closed trade before resetting position
             if self.position == 'long':
+                pnl_usdt = self.position_size * (current_price - self.entry_price)
+                self.session_stats['closed_trades'].append({
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'type': 'STOP_LOSS_LONG',
+                    'entry_price': self.entry_price,
+                    'exit_price': current_price,
+                    'position_size': self.position_size,
+                    'pnl_percent': pnl_percent,
+                    'pnl_usdt': pnl_usdt
+                })
+                self.session_stats['positions_closed'] += 1
+
                 btc_balance = self.get_balance('BTC')
                 if btc_balance > 0:
                     self.place_order('sell', btc_balance)
@@ -328,6 +384,18 @@ class BTCTradingBot:
                     self.entry_price = 0
                     self.position_size = 0
             elif self.position == 'short':
+                pnl_usdt = self.position_size * (self.entry_price - current_price)
+                self.session_stats['closed_trades'].append({
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'type': 'STOP_LOSS_SHORT',
+                    'entry_price': self.entry_price,
+                    'exit_price': current_price,
+                    'position_size': self.position_size,
+                    'pnl_percent': pnl_percent,
+                    'pnl_usdt': pnl_usdt
+                })
+                self.session_stats['positions_closed'] += 1
+
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 self.place_order('buy', trade_amount)
                 self.position = None
@@ -338,7 +406,20 @@ class BTCTradingBot:
         elif pnl_percent >= config.TAKE_PROFIT_PERCENT:
             self.logger.info(f"\n💰 TAKE PROFIT triggered at {pnl_percent:.2f}%")
 
+            # Track closed trade before resetting position
             if self.position == 'long':
+                pnl_usdt = self.position_size * (current_price - self.entry_price)
+                self.session_stats['closed_trades'].append({
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'type': 'TAKE_PROFIT_LONG',
+                    'entry_price': self.entry_price,
+                    'exit_price': current_price,
+                    'position_size': self.position_size,
+                    'pnl_percent': pnl_percent,
+                    'pnl_usdt': pnl_usdt
+                })
+                self.session_stats['positions_closed'] += 1
+
                 btc_balance = self.get_balance('BTC')
                 if btc_balance > 0:
                     self.place_order('sell', btc_balance)
@@ -346,6 +427,18 @@ class BTCTradingBot:
                     self.entry_price = 0
                     self.position_size = 0
             elif self.position == 'short':
+                pnl_usdt = self.position_size * (self.entry_price - current_price)
+                self.session_stats['closed_trades'].append({
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'type': 'TAKE_PROFIT_SHORT',
+                    'entry_price': self.entry_price,
+                    'exit_price': current_price,
+                    'position_size': self.position_size,
+                    'pnl_percent': pnl_percent,
+                    'pnl_usdt': pnl_usdt
+                })
+                self.session_stats['positions_closed'] += 1
+
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 self.place_order('buy', trade_amount)
                 self.position = None
@@ -400,6 +493,217 @@ class BTCTradingBot:
 
         self.logger.info(f"{'='*50}\n")
 
+    def track_signal(self, signal: Dict):
+        """
+        Track signal for session statistics
+
+        Args:
+            signal: Signal dictionary
+        """
+        self.session_stats['total_signals'] += 1
+
+        if signal['signal'] == 'BUY':
+            self.session_stats['buy_signals'] += 1
+        elif signal['signal'] == 'SELL':
+            self.session_stats['sell_signals'] += 1
+        else:
+            self.session_stats['hold_signals'] += 1
+
+        # Track price range
+        price = signal['price']
+        if price > self.session_stats['max_price']:
+            self.session_stats['max_price'] = price
+        if price < self.session_stats['min_price']:
+            self.session_stats['min_price'] = price
+
+        # Keep last 20 signals for context
+        self.session_stats['signals_history'].append({
+            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'signal': signal['signal'],
+            'confidence': signal['confidence'],
+            'price': price,
+            'trend': signal['trend'],
+            'main_trend': signal.get('main_trend', 'N/A')
+        })
+        if len(self.session_stats['signals_history']) > 20:
+            self.session_stats['signals_history'].pop(0)
+
+    def generate_session_report(self):
+        """Generate a session performance report every 4 hours"""
+        report_dir = 'reports'
+        if not os.path.exists(report_dir):
+            os.makedirs(report_dir)
+
+        now = datetime.now()
+        session_duration = (now - self.session_start).total_seconds() / 3600  # hours
+        since_last_report = (now - self.last_report_time).total_seconds() / 3600  # hours
+
+        report_filename = os.path.join(
+            report_dir,
+            f"session_{now.strftime('%Y%m%d_%H%M%S')}.txt"
+        )
+
+        # Calculate statistics
+        total_signals = self.session_stats['total_signals']
+        buy_pct = (self.session_stats['buy_signals'] / total_signals * 100) if total_signals > 0 else 0
+        sell_pct = (self.session_stats['sell_signals'] / total_signals * 100) if total_signals > 0 else 0
+        hold_pct = (self.session_stats['hold_signals'] / total_signals * 100) if total_signals > 0 else 0
+
+        # Calculate total P/L from closed trades
+        closed_trades = self.session_stats['closed_trades']
+        total_pnl_usdt = sum(t['pnl_usdt'] for t in closed_trades)
+        winning_trades = [t for t in closed_trades if t['pnl_usdt'] > 0]
+        losing_trades = [t for t in closed_trades if t['pnl_usdt'] < 0]
+        win_rate = (len(winning_trades) / len(closed_trades) * 100) if closed_trades else 0
+
+        # Generate report content
+        report = []
+        report.append("=" * 80)
+        report.append("🤖 BOT SESSION REPORT - AUTO-GENERATED")
+        report.append("=" * 80)
+        report.append(f"\n📅 Report Generated: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        report.append(f"⏱️  Session Started: {self.session_start.strftime('%Y-%m-%d %H:%M:%S')}")
+        report.append(f"⏱️  Session Duration: {session_duration:.2f} hours")
+        report.append(f"⏱️  Since Last Report: {since_last_report:.2f} hours")
+        report.append(f"\n{'='*80}")
+
+        # Signal Statistics
+        report.append("\n📊 SIGNAL STATISTICS")
+        report.append("-" * 80)
+        report.append(f"Total Signals Analyzed: {total_signals}")
+        report.append(f"  • BUY signals:  {self.session_stats['buy_signals']} ({buy_pct:.1f}%)")
+        report.append(f"  • SELL signals: {self.session_stats['sell_signals']} ({sell_pct:.1f}%)")
+        report.append(f"  • HOLD signals: {self.session_stats['hold_signals']} ({hold_pct:.1f}%)")
+
+        # Price Range
+        if self.session_stats['max_price'] > 0:
+            price_change = ((self.session_stats['max_price'] - self.session_stats['min_price']) /
+                           self.session_stats['min_price'] * 100)
+            report.append(f"\n💹 PRICE RANGE")
+            report.append("-" * 80)
+            report.append(f"Highest Price: ${self.session_stats['max_price']:.2f}")
+            report.append(f"Lowest Price:  ${self.session_stats['min_price']:.2f}")
+            report.append(f"Range: {price_change:.2f}%")
+
+        # Position Status
+        report.append(f"\n💼 POSITION STATUS")
+        report.append("-" * 80)
+        if self.position:
+            current_price = self.session_stats['signals_history'][-1]['price'] if self.session_stats['signals_history'] else 0
+            if self.position == 'long':
+                pnl_pct = ((current_price - self.entry_price) / self.entry_price) * 100
+                pnl_usdt = self.position_size * (current_price - self.entry_price)
+            else:  # short
+                pnl_pct = ((self.entry_price - current_price) / self.entry_price) * 100
+                pnl_usdt = self.position_size * (self.entry_price - current_price)
+
+            report.append(f"Position: {self.position.upper()}")
+            report.append(f"Entry Price: ${self.entry_price:.2f}")
+            report.append(f"Current Price: ${current_price:.2f}")
+            report.append(f"Position Size: {self.position_size} BTC")
+            report.append(f"Unrealized P/L: {pnl_pct:+.2f}% (${pnl_usdt:+.2f} USDT)")
+            report.append(f"Stop Loss: ${self.entry_price * (1 - config.STOP_LOSS_PERCENT/100):.2f} (-{config.STOP_LOSS_PERCENT}%)")
+            report.append(f"Take Profit: ${self.entry_price * (1 + config.TAKE_PROFIT_PERCENT/100):.2f} (+{config.TAKE_PROFIT_PERCENT}%)")
+        else:
+            report.append("Position: NONE (waiting for signal)")
+            report.append("Status: Bot is actively monitoring market")
+
+        # Trading Statistics
+        report.append(f"\n📈 TRADING STATISTICS")
+        report.append("-" * 80)
+        report.append(f"Positions Opened: {self.session_stats['positions_opened']}")
+        report.append(f"Positions Closed: {self.session_stats['positions_closed']}")
+
+        if closed_trades:
+            report.append(f"\n💰 PROFIT & LOSS (Closed Trades Only)")
+            report.append("-" * 80)
+            report.append(f"Total Realized P/L: ${total_pnl_usdt:+.2f} USDT")
+            report.append(f"Winning Trades: {len(winning_trades)} ({win_rate:.1f}% win rate)")
+            report.append(f"Losing Trades: {len(losing_trades)}")
+
+            if winning_trades:
+                avg_win = sum(t['pnl_usdt'] for t in winning_trades) / len(winning_trades)
+                max_win = max(t['pnl_usdt'] for t in winning_trades)
+                report.append(f"Average Win: ${avg_win:.2f} USDT")
+                report.append(f"Largest Win: ${max_win:.2f} USDT")
+
+            if losing_trades:
+                avg_loss = sum(t['pnl_usdt'] for t in losing_trades) / len(losing_trades)
+                max_loss = min(t['pnl_usdt'] for t in losing_trades)
+                report.append(f"Average Loss: ${avg_loss:.2f} USDT")
+                report.append(f"Largest Loss: ${max_loss:.2f} USDT")
+
+            # Recent Trades
+            report.append(f"\n📋 RECENT CLOSED TRADES (Last 5)")
+            report.append("-" * 80)
+            for i, trade in enumerate(reversed(closed_trades[-5:]), 1):
+                report.append(f"\nTrade #{len(closed_trades) - i + 1}:")
+                report.append(f"  Time: {trade['timestamp']}")
+                report.append(f"  Type: {trade['type']}")
+                report.append(f"  Entry: ${trade['entry_price']:.2f}")
+                report.append(f"  Exit: ${trade['exit_price']:.2f}")
+                report.append(f"  P/L: {trade['pnl_percent']:+.2f}% (${trade['pnl_usdt']:+.2f} USDT)")
+        else:
+            report.append("\nNo closed trades yet - still testing strategy")
+
+        # Recent Signals
+        if self.session_stats['signals_history']:
+            report.append(f"\n📝 RECENT SIGNALS (Last 10)")
+            report.append("-" * 80)
+            for sig in reversed(self.session_stats['signals_history'][-10:]):
+                conf_str = f"{sig['confidence']}%" if sig['confidence'] > 0 else "0%"
+                report.append(f"{sig['time']} | {sig['signal']:4s} ({conf_str:3s}) | "
+                            f"${sig['price']:8.2f} | Trend: {sig['trend']:8s} | "
+                            f"Main: {sig['main_trend']}")
+
+        # Strategy Settings
+        report.append(f"\n⚙️  STRATEGY SETTINGS")
+        report.append("-" * 80)
+        report.append(f"Timeframe: {config.TIMEFRAME}")
+        report.append(f"Trade Amount: {config.TRADE_AMOUNT} BTC")
+        report.append(f"Stop Loss: {config.STOP_LOSS_PERCENT}%")
+        report.append(f"Take Profit: {config.TAKE_PROFIT_PERCENT}%")
+        report.append(f"Min Confidence: 60%")
+        report.append(f"Min Conditions: 4/4")
+
+        # Performance Summary
+        report.append(f"\n🎯 PERFORMANCE SUMMARY")
+        report.append("-" * 80)
+        if closed_trades:
+            report.append(f"Total Realized P/L: ${total_pnl_usdt:+.2f} USDT")
+            report.append(f"Win Rate: {win_rate:.1f}%")
+            report.append(f"Total Trades: {len(closed_trades)}")
+            if total_pnl_usdt > 0:
+                report.append(f"Status: ✅ PROFITABLE")
+            else:
+                report.append(f"Status: ⚠️  LOSING")
+        else:
+            report.append(f"Status: 🔍 MONITORING (no trades yet)")
+            report.append(f"Signals: {total_signals} analyzed, waiting for high-confidence setup")
+
+        report.append(f"\n{'='*80}")
+        report.append(f"End of Report - Next report in ~4 hours")
+        report.append(f"{'='*80}\n")
+
+        # Write to file
+        report_text = '\n'.join(report)
+        with open(report_filename, 'w', encoding='utf-8') as f:
+            f.write(report_text)
+
+        # Also log to console
+        self.logger.info(f"\n📊 4-HOUR SESSION REPORT GENERATED")
+        self.logger.info(f"📄 Saved to: {report_filename}")
+        self.logger.info(f"⏱️  Session Duration: {session_duration:.2f}h")
+        self.logger.info(f"📈 Total Signals: {total_signals} (BUY:{buy_pct:.0f}% SELL:{sell_pct:.0f}% HOLD:{hold_pct:.0f}%)")
+        if self.position:
+            self.logger.info(f"💼 Position: {self.position.upper()} ({pnl_pct:+.2f}% unrealized)")
+        if closed_trades:
+            self.logger.info(f"💰 Realized P/L: ${total_pnl_usdt:+.2f} USDT ({win_rate:.0f}% win rate)")
+        self.logger.info(f"{'='*50}\n")
+
+        # Update last report time
+        self.last_report_time = now
+
     def run(self, iterations: int = None, sleep_time: int = 30):
         """
         Run the trading bot
@@ -429,6 +733,9 @@ class BTCTradingBot:
                     # Generate signal
                     signal = self.analyzer.generate_signal(data)
 
+                    # Track signal for session statistics
+                    self.track_signal(signal)
+
                     # Print analysis
                     self.print_analysis(signal)
 
@@ -440,6 +747,11 @@ class BTCTradingBot:
 
                 else:
                     self.logger.info("⚠️  Insufficient data, waiting...")
+
+                # Check if 4 hours have elapsed since last report
+                time_since_last_report = (datetime.now() - self.last_report_time).total_seconds() / 3600
+                if time_since_last_report >= 4.0:
+                    self.generate_session_report()
 
                 # Sleep before next iteration
                 if iterations is None or iteration < iterations:
