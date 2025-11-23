@@ -73,6 +73,18 @@ class BTCTradingBot:
         self.indicators = TechnicalIndicators()
         self.analyzer = PriceActionAnalyzer()
 
+        # Pyramiding tracking
+        self.pyramid_levels = []  # List of {price, size} for each entry
+        self.max_pyramid_levels = 3  # Max 3 additional entries (4 total)
+        self.pyramid_step_percent = 1.5  # Add position every +1.5% profit
+        self.last_pyramid_price = 0  # Last price where we added to position
+
+        # Contrarian entry tracking
+        self.local_high = 0  # Track local high for pullback entries
+        self.local_low = float('inf')  # Track local low for bounce entries
+        self.pullback_percent = 1.0  # -1% pullback in uptrend = buy signal
+        self.bounce_percent = 1.0  # +1% bounce in downtrend = sell signal
+
         # Session tracking for 4h reports
         self.session_start = datetime.now()
         self.last_report_time = datetime.now()
@@ -246,9 +258,7 @@ class BTCTradingBot:
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 order = self.place_order('buy', trade_amount)
                 if order:
-                    self.position = None
-                    self.entry_price = 0
-                    self.position_size = 0
+                    self.reset_position_tracking()
                     self.logger.info(f"✅ SHORT position closed at ${signal['price']:.2f}")
 
             # Open LONG position if no position
@@ -302,9 +312,7 @@ class BTCTradingBot:
                 if btc_balance > 0:
                     order = self.place_order('sell', btc_balance)
                     if order:
-                        self.position = None
-                        self.entry_price = 0
-                        self.position_size = 0
+                        self.reset_position_tracking()
                         self.logger.info(f"✅ LONG position closed at ${signal['price']:.2f}")
                 else:
                     self.logger.info(f"⚠️  No BTC balance to sell")
@@ -340,6 +348,173 @@ class BTCTradingBot:
                         self.logger.info(f"Position size: {self.position_size} BTC")
                 else:
                     self.logger.info(f"⚠️  Cannot open SHORT: insufficient BTC or use margin/futures")
+
+    def update_local_extremes(self, current_price: float, signal: Dict):
+        """
+        Update local high/low for contrarian entry detection
+
+        Args:
+            current_price: Current market price
+            signal: Current trading signal
+        """
+        # Update local high in uptrend
+        if signal.get('trend') == 'BULLISH' or signal.get('main_trend') == 'BULLISH':
+            if current_price > self.local_high:
+                self.local_high = current_price
+
+        # Update local low in downtrend
+        if signal.get('trend') == 'BEARISH' or signal.get('main_trend') == 'BEARISH':
+            if current_price < self.local_low:
+                self.local_low = current_price
+
+    def check_pyramid_opportunity(self, current_price: float, signal: Dict) -> bool:
+        """
+        Check if we should add to existing position (pyramiding)
+
+        Args:
+            current_price: Current market price
+            signal: Current trading signal
+
+        Returns:
+            True if should pyramid, False otherwise
+        """
+        # Can't pyramid if no position
+        if self.position is None:
+            return False
+
+        # Can't pyramid if max levels reached
+        if len(self.pyramid_levels) >= self.max_pyramid_levels:
+            return False
+
+        # Calculate reference price (last pyramid or entry)
+        ref_price = self.last_pyramid_price if self.last_pyramid_price > 0 else self.entry_price
+
+        # Check if position is profitable enough to pyramid
+        if self.position == 'long':
+            gain_percent = ((current_price - ref_price) / ref_price) * 100
+            # Must be in profit and signal still bullish
+            if gain_percent >= self.pyramid_step_percent:
+                if signal['signal'] == 'BUY' and signal.get('main_trend') == 'BULLISH':
+                    return True
+
+        elif self.position == 'short':
+            gain_percent = ((ref_price - current_price) / ref_price) * 100
+            # Must be in profit and signal still bearish
+            if gain_percent >= self.pyramid_step_percent:
+                if signal['signal'] == 'SELL' and signal.get('main_trend') == 'BEARISH':
+                    return True
+
+        return False
+
+    def add_to_position(self, signal: Dict):
+        """
+        Add to existing position (pyramid)
+
+        Args:
+            signal: Current trading signal
+        """
+        trade_amount = config.TRADE_AMOUNT
+
+        if self.position == 'long':
+            self.logger.info(f"\n📈 PYRAMIDING LONG (Level {len(self.pyramid_levels) + 1})")
+            self.logger.info(f"Adding {trade_amount} BTC at ${signal['price']:.2f}")
+
+            order = self.place_order('buy', trade_amount)
+            if order:
+                # Track this pyramid level
+                self.pyramid_levels.append({
+                    'price': signal['price'],
+                    'size': trade_amount
+                })
+                self.last_pyramid_price = signal['price']
+
+                # Update average entry price
+                total_cost = self.entry_price * self.position_size
+                for level in self.pyramid_levels:
+                    total_cost += level['price'] * level['size']
+
+                self.position_size += trade_amount
+                self.entry_price = total_cost / self.position_size
+
+                self.logger.info(f"✅ Position increased to {self.position_size} BTC")
+                self.logger.info(f"📊 New average entry: ${self.entry_price:.2f}")
+
+        elif self.position == 'short':
+            self.logger.info(f"\n📉 PYRAMIDING SHORT (Level {len(self.pyramid_levels) + 1})")
+            self.logger.info(f"Adding {trade_amount} BTC at ${signal['price']:.2f}")
+
+            order = self.place_order('sell', trade_amount)
+            if order:
+                # Track this pyramid level
+                self.pyramid_levels.append({
+                    'price': signal['price'],
+                    'size': trade_amount
+                })
+                self.last_pyramid_price = signal['price']
+
+                # Update average entry price
+                total_cost = self.entry_price * self.position_size
+                for level in self.pyramid_levels:
+                    total_cost += level['price'] * level['size']
+
+                self.position_size += trade_amount
+                self.entry_price = total_cost / self.position_size
+
+                self.logger.info(f"✅ Position increased to {self.position_size} BTC")
+                self.logger.info(f"📊 New average entry: ${self.entry_price:.2f}")
+
+    def check_contrarian_entry(self, current_price: float, signal: Dict) -> bool:
+        """
+        Check for contrarian entry opportunity (buy the dip / sell the rip)
+
+        Args:
+            current_price: Current market price
+            signal: Current trading signal
+
+        Returns:
+            True if contrarian entry signal, False otherwise
+        """
+        # Only enter contrarian if no position
+        if self.position is not None:
+            return False
+
+        # Check for bullish contrarian (buy the dip in uptrend)
+        if signal.get('main_trend') == 'BULLISH' and self.local_high > 0:
+            pullback = ((self.local_high - current_price) / self.local_high) * 100
+
+            # Price pulled back 1% from local high
+            if pullback >= self.pullback_percent:
+                # OBV must still be bullish (trend intact)
+                if signal.get('obv_trend') == 'bullish':
+                    self.logger.info(f"\n🎯 CONTRARIAN BUY OPPORTUNITY")
+                    self.logger.info(f"Pullback: {pullback:.2f}% from ${self.local_high:.2f}")
+                    self.logger.info(f"Main trend: BULLISH, OBV: {signal.get('obv_trend')}")
+                    return True
+
+        # Check for bearish contrarian (sell the rip in downtrend)
+        elif signal.get('main_trend') == 'BEARISH' and self.local_low < float('inf'):
+            bounce = ((current_price - self.local_low) / self.local_low) * 100
+
+            # Price bounced 1% from local low
+            if bounce >= self.bounce_percent:
+                # OBV must still be bearish (trend intact)
+                if signal.get('obv_trend') == 'bearish':
+                    self.logger.info(f"\n🎯 CONTRARIAN SELL OPPORTUNITY")
+                    self.logger.info(f"Bounce: {bounce:.2f}% from ${self.local_low:.2f}")
+                    self.logger.info(f"Main trend: BEARISH, OBV: {signal.get('obv_trend')}")
+                    return True
+
+        return False
+
+    def reset_position_tracking(self):
+        """Reset all position-related tracking variables"""
+        self.position = None
+        self.entry_price = 0
+        self.position_size = 0
+        self.pyramid_levels = []
+        self.last_pyramid_price = 0
+        self.local_high = 0
+        self.local_low = float('inf')
 
     def check_stop_loss_take_profit(self, current_price: float):
         """
@@ -380,9 +555,7 @@ class BTCTradingBot:
                 btc_balance = self.get_balance('BTC')
                 if btc_balance > 0:
                     self.place_order('sell', btc_balance)
-                    self.position = None
-                    self.entry_price = 0
-                    self.position_size = 0
+                    self.reset_position_tracking()
             elif self.position == 'short':
                 pnl_usdt = self.position_size * (self.entry_price - current_price)
                 self.session_stats['closed_trades'].append({
@@ -398,9 +571,7 @@ class BTCTradingBot:
 
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 self.place_order('buy', trade_amount)
-                self.position = None
-                self.entry_price = 0
-                self.position_size = 0
+                self.reset_position_tracking()
 
         # Check take profit
         elif pnl_percent >= config.TAKE_PROFIT_PERCENT:
@@ -423,9 +594,7 @@ class BTCTradingBot:
                 btc_balance = self.get_balance('BTC')
                 if btc_balance > 0:
                     self.place_order('sell', btc_balance)
-                    self.position = None
-                    self.entry_price = 0
-                    self.position_size = 0
+                    self.reset_position_tracking()
             elif self.position == 'short':
                 pnl_usdt = self.position_size * (self.entry_price - current_price)
                 self.session_stats['closed_trades'].append({
@@ -441,9 +610,7 @@ class BTCTradingBot:
 
                 trade_amount = self.position_size if self.position_size > 0 else config.TRADE_AMOUNT
                 self.place_order('buy', trade_amount)
-                self.position = None
-                self.entry_price = 0
-                self.position_size = 0
+                self.reset_position_tracking()
 
     def print_analysis(self, signal: Dict):
         """
@@ -490,6 +657,28 @@ class BTCTradingBot:
             self.logger.info(f"  Current: ${signal['price']:.2f}")
             self.logger.info(f"  Size: {self.position_size} BTC")
             self.logger.info(f"  P/L: {pnl_percent:+.2f}% (${pnl_usdt:+.2f} USDT)")
+
+            # Show pyramid info if any levels added
+            if len(self.pyramid_levels) > 0:
+                self.logger.info(f"  📈 Pyramid Levels: {len(self.pyramid_levels)}/{self.max_pyramid_levels}")
+                for i, level in enumerate(self.pyramid_levels, 1):
+                    self.logger.info(f"    Level {i}: ${level['price']:.2f} ({level['size']} BTC)")
+
+        # Show contrarian opportunities
+        if self.position is None:
+            if signal.get('main_trend') == 'BULLISH' and self.local_high > 0:
+                pullback = ((self.local_high - signal['price']) / self.local_high) * 100
+                if pullback > 0:
+                    self.logger.info(f"\n🎯 Pullback: {pullback:.2f}% from high ${self.local_high:.2f}")
+                    if pullback >= self.pullback_percent:
+                        self.logger.info(f"  ⚠️  Contrarian BUY opportunity detected!")
+
+            elif signal.get('main_trend') == 'BEARISH' and self.local_low < float('inf'):
+                bounce = ((signal['price'] - self.local_low) / self.local_low) * 100
+                if bounce > 0:
+                    self.logger.info(f"\n🎯 Bounce: {bounce:.2f}% from low ${self.local_low:.2f}")
+                    if bounce >= self.bounce_percent:
+                        self.logger.info(f"  ⚠️  Contrarian SELL opportunity detected!")
 
         self.logger.info(f"{'='*50}\n")
 
@@ -736,14 +925,27 @@ class BTCTradingBot:
                     # Track signal for session statistics
                     self.track_signal(signal)
 
+                    # Update local price extremes for contrarian entries
+                    self.update_local_extremes(signal['price'], signal)
+
                     # Print analysis
                     self.print_analysis(signal)
 
                     # Check stop loss / take profit
                     self.check_stop_loss_take_profit(signal['price'])
 
-                    # Execute trade
-                    self.execute_trade(signal)
+                    # Check for pyramid opportunity (add to winning position)
+                    if self.check_pyramid_opportunity(signal['price'], signal):
+                        self.add_to_position(signal)
+
+                    # Check for contrarian entry (buy dip / sell rip)
+                    elif self.check_contrarian_entry(signal['price'], signal):
+                        # Execute contrarian trade
+                        self.execute_trade(signal)
+
+                    # Execute normal trade
+                    else:
+                        self.execute_trade(signal)
 
                 else:
                     self.logger.info("⚠️  Insufficient data, waiting...")
